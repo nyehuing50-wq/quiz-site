@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Quiz</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+  <div class="card">
+
+    <h2 id="title">문법</h2>
+    <p id="welcome"></p>
+
+    <button onclick="logout()">로그아웃</button>
+
+    <div id="quizArea"></div>
+
+  </div>
+</div>
+
+<script>
+if (!localStorage.getItem("logged")) {
+  location.href = "/";
+}
+
+const username = localStorage.getItem("username");
+document.getElementById("welcome").innerText = username + "님 환영합니다!";
+
+// 🔥 3단계 표시
+const stages = [
+  "문법",
+  "단어",
+  "번역 (대소문자 / 마침표 / 풀문장 필수)"
+];
+
+// 🔥 문제
+const quiz = [
+  // ===== 문법 =====
+  {type:"input", q:"I ___ a student.", a:"am"},
+  {type:"choice", q:"She ___ my friend.", choices:["am","is","are"], a:"is"},
+  {type:"input", q:"They ___ happy.", a:"are"},
+  {type:"choice", q:"He ___ tall.", choices:["am","is","are"], a:"is"},
+  {type:"input", q:"We ___ in Korea.", a:"are"},
+  {type:"choice", q:"I ___ not tired.", choices:["am","is","are"], a:"am"},
+  {type:"input", q:"She ___ a teacher.", a:"is"},
+  {type:"choice", q:"They ___ students.", choices:["am","is","are"], a:"are"},
+
+  // ===== 단어 =====
+  {type:"input", q:"apple 뜻?", a:"사과"},
+  {type:"input", q:"dog 뜻?", a:"개"},
+  {type:"choice", q:"cat 뜻?", choices:["고양이","개","사과"], a:"고양이"},
+  {type:"input", q:"book 뜻?", a:"책"},
+  {type:"choice", q:"water 뜻?", choices:["물","불","흙"], a:"물"},
+  {type:"input", q:"school 뜻?", a:"학교"},
+  {type:"input", q:"pen 뜻?", a:"펜"},
+  {type:"choice", q:"sun 뜻?", choices:["달","해","별"], a:"해"},
+
+  // ===== 번역 =====
+  {type:"input", q:"나는 학생이다", a:"I am a student."},
+  {type:"input", q:"그는 나의 친구다", a:"He is my friend."},
+  {type:"choice", q:"그들은 행복하다", choices:["They are happy","They is happy"], a:"They are happy"},
+  {type:"input", q:"우리는 한국에 있다", a:"We are in Korea."},
+  {type:"input", q:"나는 피곤하지 않다", a:"I am not tired."},
+  {type:"choice", q:"그녀는 선생님이다", choices:["She is a teacher","She are teacher"], a:"She is a teacher"},
+  {type:"input", q:"그는 키가 크다", a:"He is tall."},
+  {type:"input", q:"그들은 학생이다", a:"They are students."}
+];
+
+let page = 0;
+const pageSize = 8;
+let solved = new Array(quiz.length).fill(false);
+
+// 🔥 정규화
+function normalize(t){
+  return t.trim().toLowerCase().replace(/\s+/g," ");
+}
+
+// 🔥 렌더
+function renderQuiz(){
+
+  document.getElementById("title").innerText = stages[page];
+
+  const start = page * pageSize;
+  const list = quiz.slice(start, start + pageSize);
+
+  let html = "";
+
+  list.forEach((q,i)=>{
+    const idx = start + i;
+
+    html += `<div style="margin-bottom:15px;text-align:left;">`;
+    html += `<p><b>${i+1}. ${q.q}</b></p>`;
+
+    // 주관식
+    if(q.type==="input"){
+      html += `
+        <input id="q${idx}" autocomplete="off" spellcheck="false">
+        <button onclick="checkInput(${idx})">확인</button>
+      `;
+    }
+
+    // 객관식
+    if(q.type==="choice"){
+      q.choices.forEach(c=>{
+        html += `<button onclick="checkChoice(${idx},'${c}')">${c}</button>`;
+      });
+    }
+
+    html += `<div id="msg${idx}" class="msg"></div>`;
+    html += `</div>`;
+  });
+
+  html += `<button onclick="nextPage()">다음</button>`;
+
+  document.getElementById("quizArea").innerHTML = html;
+}
+
+// 🔥 주관식 체크
+function checkInput(i){
+  const val = normalize(document.getElementById("q"+i).value);
+  const msg = document.getElementById("msg"+i);
+
+  if(val === normalize(quiz[i].a)){
+    msg.innerText = "✅ 정답";
+    msg.style.color = "green";
+    solved[i] = true;
+  }else{
+    msg.innerText = "❌ 틀림 (형식 정확히)";
+    msg.style.color = "red";
+    solved[i] = false;
+  }
+}
+
+// 🔥 객관식 체크
+function checkChoice(i,val){
+  const msg = document.getElementById("msg"+i);
+
+  if(val === quiz[i].a){
+    msg.innerText = "✅ 정답";
+    msg.style.color = "green";
+    solved[i] = true;
+  }else{
+    msg.innerText = "❌ 틀림";
+    msg.style.color = "red";
+    solved[i] = false;
+  }
+}
+
+// 🔥 다음 페이지 / CLEAR 처리
+function nextPage(){
+
+  const start = page * pageSize;
+  let ok = true;
+
+  for(let i=0;i<pageSize;i++){
+    if(!solved[start+i]) ok = false;
+  }
+
+  if(ok){
+    page++;
+
+    // 🔥 끝났을 때 CLEAR 화면
+    if(page >= 3){
+      document.getElementById("quizArea").innerHTML = `
+        <h2 style="text-align:center;">🎉 CLEAR!</h2>
+
+        <button onclick="restart()">다시 풀기</button>
+        <button onclick="logout()">로그아웃</button>
+      `;
+      document.getElementById("title").innerText = "완료!";
+      return;
+    }
+
+    renderQuiz();
+
+  }else{
+    alert("❌ 아직 틀린 문제가 있습니다!");
+  }
+}
+
+// 🔥 다시 풀기
+function restart(){
+  page = 0;
+  solved = new Array(quiz.length).fill(false);
+  renderQuiz();
+}
+
+// 🔥 로그아웃
+function logout(){
+  localStorage.clear();
+  location.href="/";
+}
+
+// 시작
+renderQuiz();
+</script>
+
+</body>
+</html>
